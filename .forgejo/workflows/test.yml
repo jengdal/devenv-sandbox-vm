@@ -1,0 +1,40 @@
+# The tests that need no real VM. The end-to-end test (tests/e2e/run.sh) is not here: it
+# needs a Mac that can run a VM, and it takes many minutes. Run it by hand before a
+# release.
+#
+# The jobs need a runner with this label:
+#   nix           NixOS with flakes. The job guest also needs /dev/kvm, for the VM of the
+#                 NixOS test.
+#
+# GitHub does not read this file: it uses .github/workflows/test.yml, which has these jobs
+# and the macOS job.
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  # Shell scripts, the host module, and the supervisor with the tests of the sandbox rules.
+  # Forgejo has no Mac runner, thus this job runs only on GitHub. To run it here, add a
+  # runner with the label macos-arm64: a Mac with Apple silicon, Nix (with flakes) and
+  # devenv. The macOS sandbox must work for the user of the runner (sandbox-exec).
+  # host:
+  #   runs-on: macos-arm64
+  #   steps:
+  #     - uses: actions/checkout@v4
+  #     - run: devenv test
+  #     - run: nix build --print-build-logs ./tests#checks.aarch64-darwin.template
+
+  # The same checks on Linux, without the tests that exist only on macOS.
+  checks:
+    runs-on: nix
+    steps:
+      - uses: actions/checkout@v4
+      - run: nix shell nixpkgs#devenv --command devenv test
+
+  # The guest module in a NixOS VM.
+  guest:
+    runs-on: nix
+    steps:
+      - uses: actions/checkout@v4
+      - run: nix flake check --print-build-logs ./tests

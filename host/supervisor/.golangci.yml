@@ -1,0 +1,22 @@
+# The settings of golangci-lint (`devenv test`).
+version: "2"
+linters:
+  settings:
+    errcheck:
+      # The program stops and removes many things without a check of the result: a
+      # file that is not there or a program that already stopped is not an error.
+      exclude-functions:
+        - os.Remove
+        - os.RemoveAll
+        - (*os.File).Close
+        - (net.Conn).Close
+        - (net.Listener).Close
+        - syscall.Close
+        - syscall.Kill
+        - (*os.Process).Signal
+        - (*os.Process).Kill
+    staticcheck:
+      checks:
+        - all
+        # The messages for the user are sentences.
+        - -ST1005

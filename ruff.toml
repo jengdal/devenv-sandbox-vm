@@ -1,0 +1,2 @@
+# The settings of ruff, for the Python scripts of the documentation (devenv.nix).
+line-length = 100

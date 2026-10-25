@@ -1,0 +1,18 @@
+# The documentation site. mdBook builds the pages in src/ into book/html, and
+# .github/workflows/docs.yml publishes them on GitHub Pages.
+[book]
+title = "devenv-sandbox-vm"
+authors = ["John Engdal"]
+language = "en"
+src = "src"
+
+[output.html]
+site-url = "/devenv-sandbox-vm/"
+git-repository-url = "https://github.com/jengdal/devenv-sandbox-vm"
+edit-url-template = "https://github.com/jengdal/devenv-sandbox-vm/edit/main/docs/{path}"
+
+# Fails the build if a link to a page does not exist, or the page is not in SUMMARY.md.
+# linkcheck2 does not check headings (fragment checking is a TODO in the linkcheck2 crate),
+# so tests/docs/anchors.py does that. It does not open web links.
+[output.linkcheck2]
+follow-web-links = false

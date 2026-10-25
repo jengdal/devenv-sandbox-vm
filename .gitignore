@@ -1,0 +1,11 @@
+# The development environment of this repo (devenv.nix)
+.devenv*
+devenv.local.nix
+devenv.local.yaml
+.pre-commit-config.yaml
+# Installer ISOs
+*.iso
+# The documentation site (docs/book.toml)
+docs/book
+__pycache__/
+*.pyc

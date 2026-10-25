@@ -1,0 +1,3 @@
+# The scripts read each other with `.`; follow these files, from the directory of the script.
+external-sources=true
+source-path=SCRIPTDIR

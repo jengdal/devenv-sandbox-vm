@@ -1,0 +1,73 @@
+# The tests that need no real VM, on the runners of GitHub. The end-to-end test
+# (tests/e2e/run.sh) is not here: it needs a Mac that can run a VM, and the Mac runners of
+# GitHub cannot. It also takes many minutes. Run it by hand before a release.
+#
+# Forgejo does not read this file: it uses .forgejo/workflows/test.yml, which has the Linux
+# jobs.
+#
+# Each action is pinned to the commit of a release, with the release in a comment. To
+# update an action, use the commit of its new release tag.
+#
+# install-nix-action makes the user of the runner a trusted user of Nix. Thus devenv can
+# use the cache of devenv (devenv.cachix.org). cache-nix-action keeps the Nix store of each
+# job in the cache of GitHub Actions, for the programs that only this repo builds.
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# The jobs only read the repo. cache-nix-action needs actions: write to remove the old
+# caches of a job.
+permissions:
+  contents: read
+  actions: write
+
+# A new push to a branch stops the run of the previous push.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # Shell scripts, the host module, and the supervisor with the tests of the sandbox rules.
+  host:
+    runs-on: macos-latest
+    timeout-minutes: 120
+    steps:
+      - &checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - &install-nix
+        uses: cachix/install-nix-action@448cde739abec1eaf0646249e3d25bb8d9bc7702 # v31.11.2
+      - &cache-nix
+        uses: nix-community/cache-nix-action@7df957e333c1e5da7721f60227dbba6d06080569 # v7.0.2
+        with:
+          # A new cache when a Nix file, a lock file or a patch changes. Until then, the
+          # job uses its newest cache.
+          primary-key: nix-${{ github.job }}-${{ runner.os }}-${{ hashFiles('**/*.nix', '**/*.lock', 'devenv.yaml', '**/*.patch') }}
+          restore-prefixes-first-match: nix-${{ github.job }}-${{ runner.os }}-
+          # Remove the older caches of the job. GitHub keeps only 10 GB of caches for a repo.
+          purge: true
+          purge-prefixes: nix-${{ github.job }}-${{ runner.os }}-
+          purge-created: 0
+          purge-primary-key: never
+      - run: nix shell nixpkgs#devenv --command devenv test
+      - run: nix build --print-build-logs ./tests#checks.aarch64-darwin.template
+
+  # The same checks on Linux, without the tests that exist only on macOS.
+  checks:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - *checkout
+      - *install-nix
+      - *cache-nix
+      - run: nix shell nixpkgs#devenv --command devenv test
+
+  # The guest module in a NixOS VM.
+  guest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - *checkout
+      - *install-nix
+      - *cache-nix
+      - run: nix flake check --print-build-logs ./tests
