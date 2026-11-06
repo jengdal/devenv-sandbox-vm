@@ -685,6 +685,28 @@ func TestRunInstallsFromISO(t *testing.T) {
 }
 
 // An installation that fails stops the installer, and the VM is not installed.
+// gvproxy stops at its start, and its port is free: for example a rule of its sandbox
+// denies an operation. run starts it one time, not again on each port, and the error has
+// the end of the log of gvproxy.
+func TestRunGvproxyFails(t *testing.T) {
+	w := newRunWorld(t)
+	w.put("gvproxy-fail", "level=error msg=\"gvproxy exiting: operation not permitted\"\n")
+	w.start()
+	err := w.wait(nil)
+	if err == nil || !strings.Contains(err.Error(), "could not start gvproxy: it stopped before it listened") ||
+		!strings.Contains(err.Error(), "gvproxy exiting: operation not permitted") {
+		t.Errorf("run: %v", err)
+	}
+	// Each start writes the line to the log.
+	log, _ := os.ReadFile(w.cfg.path("log", "gvproxy", "current"))
+	if n := strings.Count(string(log), "gvproxy exiting"); n != 1 {
+		t.Errorf("gvproxy started %d times:\n%s", n, log)
+	}
+	if got := w.pids(); len(got) != 0 {
+		t.Errorf("programs run: %v", got)
+	}
+}
+
 func TestRunInstallFails(t *testing.T) {
 	w := newRunWorld(t)
 	w.newVM()

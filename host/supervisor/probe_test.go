@@ -23,7 +23,8 @@ import (
 //	dial=ADDRESS   connects to the address (host:port)
 //	listen=PORT    binds the port of the loopback address
 //	unix-listen=FILE, unix-connect=FILE
-//	               the same for a unix socket
+//	               the same for a unix socket; unix-listen also sets the mode of the
+//	               socket, as gvproxy does
 //	exec=PROGRAM   starts the program, with the argument "probe": a copy of the test
 //	               binary then does no operation and exits
 //	env=NAME       the variable is in the environment
@@ -65,6 +66,10 @@ func probe(ops []string) {
 			}
 			var l net.Listener
 			if l, err = net.Listen(network, arg); err == nil {
+				// gvproxy sets the mode of its socket.
+				if network == "unix" {
+					err = os.Chmod(arg, 0o600)
+				}
 				l.Close()
 			}
 		case "unix-connect":

@@ -194,7 +194,7 @@ func TestSandboxProfileSockets(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, rule := range []string{
-		`(allow file-read-metadata file-write-create (literal "/vm/net.sock"))`,
+		`(allow file-read-metadata file-write-create file-write-mode (literal "/vm/net.sock"))`,
 		`(allow network-bind network-inbound (local unix-socket (literal "/vm/net.sock")))`,
 		`(allow network-outbound (remote unix-socket (literal "/vm/other.sock")))`,
 		`(allow network-outbound (remote unix-socket (subpath "/private/tmp/svm-1")))`,

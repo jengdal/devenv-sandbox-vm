@@ -21,10 +21,10 @@ package main
 //
 // The sandboxes deny all that they do not name, in case the guest gets control of gvproxy
 // or of the proxy (refer to confinement). In the Nix store, they can read only their own
-// paths. gvproxy can create only its socket, and the proxy can write nothing. Thus they
-// cannot change ssh.config, which the SSH configuration of the user includes. They also
-// cannot connect to the control socket of ssh (forwards.go): a program that connects to it
-// can open forwards on the host.
+// paths. gvproxy can create only its socket and set its mode, and the proxy can write
+// nothing. Thus they cannot change ssh.config, which the SSH configuration of the user
+// includes. They also cannot connect to the control socket of ssh (forwards.go): a program
+// that connects to it can open forwards on the host.
 
 import (
 	"context"
@@ -299,7 +299,9 @@ const listenTimeout = 30 * time.Second
 // the program accepts connections.
 //
 // A program stops if a different program took its port after this function checked it.
-// Then the function tries the subsequent port.
+// Then the function tries the subsequent port. If the program stops and its port is free,
+// the cause is a different one, for example a rule of its sandbox. Then the function stops
+// and gives an error: with each port the program would stop again.
 func startOnPort(ctx context.Context, candidates []int, start func(port int) (*child, error), listening func(port int) bool) (int, *child, error) {
 	for _, p := range candidates {
 		if portInUse(p) {
@@ -314,7 +316,10 @@ func startOnPort(ctx context.Context, candidates []int, start func(port int) (*c
 			return 0, nil, err
 		}
 		if !prog.alive() {
-			continue
+			if portInUse(p) {
+				continue
+			}
+			return 0, nil, fmt.Errorf("it stopped before it listened on port %d", p)
 		}
 		if !listening(p) {
 			prog.kill()
@@ -353,7 +358,7 @@ func (s *supervisor) startProxy(ctx context.Context) error {
 		if ctx.Err() != nil {
 			return err
 		}
-		return fmt.Errorf("could not start the proxy: %w; see %s", err, c.path("log", "smokescreen", "current"))
+		return s.startError("the proxy", "smokescreen", err)
 	}
 	s.proxyPort, s.proxy = port, proxy
 	return nil
@@ -369,15 +374,7 @@ func (s *supervisor) startGvproxy(ctx context.Context) error {
 		os.Remove(c.path("net.sock"))
 		port := strconv.Itoa(p)
 		args := append(gvproxyListenArgs(c), "-ssh-port", port)
-		// gvproxy listens on net.sock, and the hypervisor has its end of the connection in
-		// hvSockDir.
-		cmd, err := confinedCommand(confinement{
-			listen:            port,
-			egress:            egressLocal(s.proxyPort),
-			storePaths:        c.gvproxyStorePaths,
-			bindSockets:       []string{c.path("net.sock")},
-			connectSocketDirs: []string{s.hvSockDir},
-		}, c.gvproxy, args...)
+		cmd, err := confinedCommand(gvproxyConfinement(c, port, s.proxyPort, s.hvSockDir), c.gvproxy, args...)
 		if err != nil {
 			return nil, err
 		}
@@ -396,10 +393,23 @@ func (s *supervisor) startGvproxy(ctx context.Context) error {
 		if ctx.Err() != nil {
 			return err
 		}
-		return fmt.Errorf("could not start gvproxy: %w; see %s", err, c.path("log", "gvproxy", "current"))
+		return s.startError("gvproxy", "gvproxy", err)
 	}
 	s.sshPort, s.gvproxy = port, gvproxy
 	return os.WriteFile(c.path("ssh.config"), []byte(sshConfig(c.name, port, s.vmUser, c.dir)), 0o644)
+}
+
+// gvproxyConfinement returns the sandbox of gvproxy: its SSH port, the port of the proxy,
+// net.sock, and the directory with the end of the hypervisor (hvSockDir). The test of the
+// real gvproxy uses the same sandbox (TestGvproxySandbox).
+func gvproxyConfinement(c *config, sshPort string, proxyPort int, hvSockDir string) confinement {
+	return confinement{
+		listen:            sshPort,
+		egress:            egressLocal(proxyPort),
+		storePaths:        c.gvproxyStorePaths,
+		bindSockets:       []string{c.path("net.sock")},
+		connectSocketDirs: []string{hvSockDir},
+	}
 }
 
 // proxyEnv returns the proxy variables for the commands that the host runs in the guest: the

@@ -30,6 +30,7 @@ import (
 //	                   the hypervisor writes its pid to the disk of the VM.
 //	ssh-fail           ssh fails for a command that contains the text of this file
 //	poweroff-ignored   the guest accepts `poweroff` and does not stop
+//	gvproxy-fail       gvproxy writes the text of this file and stops before it listens
 //	ssh.log            the arguments of each ssh
 //	guest-env          the settings that the guest got
 //	stdin-N            the input of the ssh command of line N of ssh.log, if it has input
@@ -106,6 +107,10 @@ func fakeProgram(name string) bool {
 		<-stop
 
 	case "gvproxy":
+		if text, err := os.ReadFile(file("gvproxy-fail")); err == nil {
+			_, _ = os.Stderr.Write(text)
+			syscall.Exit(1)
+		}
 		listen("unixgram", strings.TrimPrefix(option("-listen-vfkit"), "unixgram://"))
 		listen("tcp", net.JoinHostPort("127.0.0.1", option("-ssh-port")))
 		<-stop

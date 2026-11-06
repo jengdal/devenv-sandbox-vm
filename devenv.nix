@@ -46,10 +46,18 @@ in
   };
 
   # The programs that the supervisor tests start. Without these variables, the tests that
-  # use them are skipped (TestConsoleLog, TestProxyRules).
-  env.SVM_S6_LOG = "${pkgs.s6}/bin/s6-log";
-  env.SVM_SMOKESCREEN = lib.getExe proxyTest.smokescreen;
-  env.SVM_TEST_PROXY_CONFIGS = "${proxyTest.configs}";
+  # use them are skipped (TestConsoleLog, TestProxyRules, TestGvproxySandbox).
+  env = {
+    SVM_S6_LOG = "${pkgs.s6}/bin/s6-log";
+    SVM_SMOKESCREEN = lib.getExe proxyTest.smokescreen;
+    SVM_TEST_PROXY_CONFIGS = "${proxyTest.configs}";
+  }
+  # The test of gvproxy in its sandbox runs only on macOS. host/scripts.nix gives the
+  # host the same values.
+  // lib.optionalAttrs pkgs.stdenv.isDarwin {
+    SVM_GVPROXY = "${pkgs.gvproxy}/bin/gvproxy";
+    SVM_GVPROXY_STORE_PATHS = "${pkgs.closureInfo { rootPaths = [ pkgs.gvproxy ]; }}/store-paths";
+  };
 
   # Check the files that change in a commit. .shellcheckrc has the settings of shellcheck,
   # and ruff.toml the settings of ruff.

@@ -352,3 +352,65 @@ func needSandbox(t *testing.T) {
 		t.Skip("sandbox-exec does not work here")
 	}
 }
+
+// The real gvproxy starts in its sandbox (gvproxyConfinement) and listens on net.sock and
+// on its SSH port. A new version of gvproxy can need an operation that the sandbox denies:
+// gvproxy 0.9 sets the mode of net.sock. SVM_GVPROXY is the program, and
+// SVM_GVPROXY_STORE_PATHS the file with its store paths; devenv.nix sets them.
+func TestGvproxySandbox(t *testing.T) {
+	needSandbox(t)
+	prog, store := os.Getenv("SVM_GVPROXY"), os.Getenv("SVM_GVPROXY_STORE_PATHS")
+	if prog == "" || store == "" {
+		t.Skip("SVM_GVPROXY or SVM_GVPROXY_STORE_PATHS is not set")
+	}
+	// The name of a socket has a maximum length, thus the directories are in /tmp.
+	dirs := make([]string, 2)
+	for i := range dirs {
+		d, err := os.MkdirTemp("/private/tmp", "svm-test-")
+		if err != nil {
+			t.Fatal(err)
+		}
+		t.Cleanup(func() { os.RemoveAll(d) })
+		dirs[i] = d
+	}
+	c := &config{dir: dirs[0], gvproxy: prog, gvproxyStorePaths: store}
+	w := &sandboxWorld{t: t}
+	sshPort, proxyPort := w.freePort(), mustAtoi(t, w.listener())
+
+	cmd, err := confinedCommand(gvproxyConfinement(c, sshPort, proxyPort, dirs[1]),
+		prog, append(gvproxyListenArgs(c), "-ssh-port", sshPort)...)
+	if err != nil {
+		t.Fatal(err)
+	}
+	logFile := c.path("gvproxy.log")
+	out, err := os.Create(logFile)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer out.Close()
+	cmd.Stdout, cmd.Stderr = out, out
+	if err := cmd.Start(); err != nil {
+		t.Fatal(err)
+	}
+	done := make(chan struct{})
+	go func() { _ = cmd.Wait(); close(done) }()
+	defer func() { cmd.Process.Kill(); <-done }()
+
+	alive := func() bool {
+		select {
+		case <-done:
+			return false
+		default:
+			return true
+		}
+	}
+	listening := func() bool {
+		st, err := os.Stat(c.path("net.sock"))
+		return err == nil && st.Mode()&os.ModeSocket != 0 && portInUse(mustAtoi(t, sshPort))
+	}
+	waitUntil(t.Context(), listenTimeout, func() bool { return !alive() || listening() })
+	if !alive() || !listening() {
+		log, _ := os.ReadFile(logFile)
+		t.Fatalf("gvproxy does not listen in its sandbox. Its output:\n%s", log)
+	}
+}

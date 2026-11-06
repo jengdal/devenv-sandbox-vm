@@ -2,9 +2,12 @@ package main
 
 import (
 	"context"
+	"net"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
+	"strconv"
 	"strings"
 	"syscall"
 	"testing"
@@ -103,19 +106,47 @@ func TestWaitUntil(t *testing.T) {
 
 func TestStartOnPort(t *testing.T) {
 	ctx := context.Background()
-	var started []int
-	// The program of the first port stops; that of the second port listens.
-	port, prog, err := startOnPort(ctx, []int{1, 2, 3}, func(p int) (*child, error) {
-		started = append(started, p)
-		c := &child{done: make(chan struct{})}
-		if p == 1 {
-			close(c.done)
+	free := func() int {
+		l, err := net.Listen("tcp", "127.0.0.1:0")
+		if err != nil {
+			t.Fatal(err)
 		}
-		return c, nil
-	}, func(p int) bool { return p == 2 })
-	if err != nil || port != 2 || len(started) != 2 || prog == nil || !prog.alive() {
+		defer l.Close()
+		return l.Addr().(*net.TCPAddr).Port
+	}
+	a, b, c := free(), free(), free()
+	var started []int
+	// A different program takes the first port, and the program of that port stops. The
+	// program of the second port listens.
+	port, prog, err := startOnPort(ctx, []int{a, b, c}, func(p int) (*child, error) {
+		started = append(started, p)
+		ch := &child{done: make(chan struct{})}
+		if p == a {
+			l, err := net.Listen("tcp", net.JoinHostPort("127.0.0.1", strconv.Itoa(p)))
+			if err != nil {
+				t.Fatal(err)
+			}
+			t.Cleanup(func() { l.Close() })
+			close(ch.done)
+		}
+		return ch, nil
+	}, func(p int) bool { return p == b })
+	if err != nil || port != b || !slices.Equal(started, []int{a, b}) || prog == nil || !prog.alive() {
 		t.Errorf("port %d, started %v, program %v: %v", port, started, prog, err)
 	}
+
+	// The program stops, and its port is free: the next port does not help.
+	started = nil
+	_, _, err = startOnPort(ctx, []int{b, c}, func(p int) (*child, error) {
+		started = append(started, p)
+		ch := &child{done: make(chan struct{})}
+		close(ch.done)
+		return ch, nil
+	}, func(int) bool { return false })
+	if err == nil || !strings.Contains(err.Error(), "stopped before it listened") || len(started) != 1 {
+		t.Errorf("started %v: %v", started, err)
+	}
+
 	if _, _, err := startOnPort(ctx, nil, nil, nil); err == nil {
 		t.Error("no error without a port")
 	}

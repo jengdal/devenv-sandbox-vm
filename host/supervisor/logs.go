@@ -7,6 +7,7 @@ import (
 	"io"
 	"os"
 	"os/exec"
+	"strings"
 	"syscall"
 	"time"
 )
@@ -252,6 +253,45 @@ func (s *supervisor) guestRebooted() bool {
 		return decided
 	})
 	return reboot
+}
+
+// startError is the error when a program of the network does not start: the cause, the
+// last lines of the log of the program, and the path of the log.
+func (s *supervisor) startError(what, log string, err error) error {
+	tail := s.logTail(log, 5)
+	if tail != "" {
+		tail = "\n" + tail
+	}
+	return fmt.Errorf("could not start %s: %w%s\nsee %s", what, err, tail, s.cfg.path("log", log, "current"))
+}
+
+// logTail returns the last n lines of a log, each one indented. s6-log can write the last
+// lines a moment after the program stops, thus logTail first waits a short time until the
+// log stops growing.
+func (s *supervisor) logTail(log string, n int) string {
+	path := s.cfg.path("log", log, "current")
+	size := int64(-1)
+	waitUntil(context.Background(), time.Second, func() bool {
+		st, err := os.Stat(path)
+		if err != nil {
+			return false
+		}
+		same := st.Size() == size
+		size = st.Size()
+		return same
+	})
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return ""
+	}
+	lines := strings.Split(strings.TrimRight(string(data), "\n"), "\n")
+	if len(lines) > n {
+		lines = lines[len(lines)-n:]
+	}
+	if len(lines) == 1 && lines[0] == "" {
+		return ""
+	}
+	return "  " + strings.Join(lines, "\n  ")
 }
 
 // consoleTail reads the end of the log of the console. If it cannot go to the end, it reads

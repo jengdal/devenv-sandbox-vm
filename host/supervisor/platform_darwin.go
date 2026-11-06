@@ -108,10 +108,11 @@ func sandboxProfile(c confinement, prog string) (string, error) {
 	for _, d := range c.writeDirs {
 		rule(`(allow file-read* file-write* (subpath %s))`, quote(d))
 	}
-	// The unix sockets. To listen on a socket, the program creates its file. To connect to a
-	// socket, the program needs no rule for its file.
+	// The unix sockets. To listen on a socket, the program creates its file and can set its
+	// mode (gvproxy 0.9 does a chmod of its socket). To connect to a socket, the program
+	// needs no rule for its file.
 	for _, f := range c.bindSockets {
-		rule(`(allow file-read-metadata file-write-create (literal %s))`, quote(f))
+		rule(`(allow file-read-metadata file-write-create file-write-mode (literal %s))`, quote(f))
 		rule(`(allow network-bind network-inbound (local unix-socket (literal %s)))`, quote(f))
 	}
 	for _, f := range c.connectSockets {
