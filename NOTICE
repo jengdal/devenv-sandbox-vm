@@ -4,9 +4,10 @@ Copyright 2026 John Engdal
 This product is licensed under the Apache License, Version 2.0 (LICENSE). These parts
 come from other projects:
 
-- host/platform/libkrun-balloon-macos.patch changes libkrun
-  (https://github.com/libkrun/libkrun). Most of the patch comes from libkrun. The patch is
-  licensed under the Apache License, Version 2.0, like libkrun.
+- host/platform/krunkit-free-page-reporting.patch changes krunkit
+  (https://github.com/libkrun/krunkit). The patch comes from krunkit PR #122
+  (https://github.com/libkrun/krunkit/pull/122). It is licensed under the Apache License,
+  Version 2.0.
 
 - Parts of host/platform/krunkit.nix come from the package libkrun-efi of nixpkgs
   (https://github.com/NixOS/nixpkgs). nixpkgs uses this license:

@@ -1,0 +1,117 @@
+A change to krunkit 1.3.2. Licensed under the Apache License, Version 2.0.
+
+The option --free-page-reporting default|replace. A backport of krunkit PR #122
+(https://github.com/libkrun/krunkit/pull/122, commit 9010731f8d), which is not merged yet.
+The option calls krun_set_balloon_free_page_reporting_mode() of libkrun 1.19.8. With
+"replace", libkrun replaces the free pages that the guest reports with new memory, and the VM
+gives its free memory back to macOS. The default of libkrun is madvise(), which frees nothing
+on macOS for memory that the guest wrote to.
+
+The patch has only the src/ part of the PR, not docs/usage.md.
+
+diff --git a/src/cmdline.rs b/src/cmdline.rs
+index a08f3f1..0e00c7f 100644
+--- a/src/cmdline.rs
++++ b/src/cmdline.rs
+@@ -68,6 +68,20 @@ pub struct Args {
+     /// Vsock port for timesync
+     #[arg(long = "timesync", value_parser = parse_timesync)]
+     pub timesync: Option<u32>,
++
++    /// What the balloon does with the guest's free page reports: "default" madvise()s them,
++    /// which on macOS doesn't give back the pages the guest has written to; "replace" does.
++    #[arg(long = "free-page-reporting", value_parser = parse_free_page_reporting)]
++    pub free_page_reporting: Option<u32>,
++}
++
++/// The KRUN_FREE_PAGE_REPORTING_MODE_* value for a --free-page-reporting argument.
++pub fn parse_free_page_reporting(s: &str) -> Result<u32, String> {
++    match s {
++        "default" => Ok(0),
++        "replace" => Ok(1),
++        _ => Err("expected 'default' or 'replace'".to_string()),
++    }
+ }
+ 
+ fn parse_timesync(s: &str) -> Result<u32, String> {
+@@ -315,6 +329,33 @@ mod tests {
+         assert!(super::parse_memory("").is_err());
+     }
+ 
++    #[test]
++    fn free_page_reporting_parse() {
++        assert_eq!(super::parse_free_page_reporting("default"), Ok(0));
++        assert_eq!(super::parse_free_page_reporting("replace"), Ok(1));
++        assert!(super::parse_free_page_reporting("Replace").is_err());
++        assert!(super::parse_free_page_reporting("on").is_err());
++        assert!(super::parse_free_page_reporting("").is_err());
++    }
++
++    #[test]
++    fn free_page_reporting_flag() {
++        use clap::Parser;
++
++        let args = |extra: &[&str]| {
++            let mut argv = vec!["krunkit", "--cpus", "1", "--memory", "512"];
++            argv.extend_from_slice(extra);
++            super::Args::try_parse_from(argv).map(|a| a.free_page_reporting)
++        };
++
++        assert_eq!(args(&[]).unwrap(), None);
++        assert_eq!(
++            args(&["--free-page-reporting", "replace"]).unwrap(),
++            Some(1)
++        );
++        assert!(args(&["--free-page-reporting", "lazy"]).is_err());
++    }
++
+     #[test]
+     fn virtio_blk_argument_ordering() {
+         let in_order =
+diff --git a/src/context.rs b/src/context.rs
+index eed1a6e..bba92a8 100644
+--- a/src/context.rs
++++ b/src/context.rs
+@@ -199,6 +199,10 @@ impl TryFrom<Args> for KrunContext {
+             }
+         }
+ 
++        if let Some(mode) = args.free_page_reporting {
++            set_balloon_free_page_reporting_mode(id, mode)?;
++        }
++
+         if let Some(timesync_port) = args.timesync {
+             let vsock_config = VsockConfig {
+                 port: timesync_port,
+@@ -251,6 +255,31 @@ impl KrunContext {
+     }
+ }
+ 
++/// Calls krun_set_balloon_free_page_reporting_mode(), which is newer than the rest of the libkrun
++/// API that krunkit uses. It's looked up when the option is used rather than linked, so that
++/// krunkit still starts with a libkrun that doesn't have it.
++fn set_balloon_free_page_reporting_mode(ctx_id: u32, mode: u32) -> Result<(), anyhow::Error> {
++    type SetMode = unsafe extern "C" fn(u32, u32) -> i32;
++    extern "C" {
++        fn dlsym(handle: *mut std::ffi::c_void, symbol: *const c_char) -> *mut std::ffi::c_void;
++    }
++    // RTLD_DEFAULT on macOS: search every image loaded in the process.
++    const RTLD_DEFAULT: *mut std::ffi::c_void = -2isize as *mut std::ffi::c_void;
++
++    let symbol = c"krun_set_balloon_free_page_reporting_mode";
++    let f = unsafe { dlsym(RTLD_DEFAULT, symbol.as_ptr()) };
++    if f.is_null() {
++        return Err(anyhow!(
++            "--free-page-reporting needs a libkrun with krun_set_balloon_free_page_reporting_mode()"
++        ));
++    }
++    let set_mode: SetMode = unsafe { std::mem::transmute(f) };
++    match unsafe { set_mode(ctx_id, mode) } {
++        0 => Ok(()),
++        e => Err(anyhow!("unable to set the free page reporting mode: {e}")),
++    }
++}
++
+ fn set_smbios_oem_strings(
+     ctx_id: u32,
+     oem_strings: &Option<Vec<String>>,

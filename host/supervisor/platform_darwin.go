@@ -306,6 +306,8 @@ func krunkitCommand(c *config, sockDir, iso string, credentials []string) (*exec
 		c.krunkit,
 		"--cpus", c.cpus, "--memory", c.memoryMiB,
 		"--restful-uri", "none://",
+		// The VM gives its free memory back to macOS (host/platform/krunkit.nix).
+		"--free-page-reporting", "replace",
 		"--device", "virtio-blk,path=" + c.path("disk.img") + ",format=raw",
 	}
 	if iso != "" {

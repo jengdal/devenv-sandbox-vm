@@ -49,9 +49,11 @@ to run a local LLM inside the same VM that also runs the agent, so in the author
 not be a problem that the GPU is unreachable. If you have another use case where you need the GPU, run the
 code in another VM or on the host.
 
-libkrun has a fixed version, not the one of nixpkgs, and a patch (a backport of
-[libkrun PR #931](https://github.com/libkrun/libkrun/pull/931)) that releases free guest memory back
-to the host. The changes are in `host/platform/`. See also [The memory of the VM](memory.md).
+libkrun has a fixed version, not the one of nixpkgs. Since 1.19.8, libkrun can release free guest
+memory back to the host ([libkrun PR #931](https://github.com/libkrun/libkrun/pull/931)), but only
+if krunkit enables it. krunkit has a patch (a backport of
+[krunkit PR #122](https://github.com/libkrun/krunkit/pull/122)) that enables it. The changes are in
+`host/platform/`. See also [The memory of the VM](memory.md).
 
 ## Future work
 

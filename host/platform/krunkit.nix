@@ -1,8 +1,9 @@
 # The hypervisor: the packages krunkit and libkrun-efi of nixpkgs, with these changes:
 #
 # - libkrun has a fixed version. nixpkgs does not update it.
-# - libkrun has a patch: the VM gives its free memory back to macOS
-#   (./libkrun-balloon-macos.patch, a backport of libkrun PR #931).
+# - krunkit has a patch (./krunkit-free-page-reporting.patch, a backport of krunkit PR #122):
+#   the option --free-page-reporting. With "replace", the VM gives its free memory back to
+#   macOS. The supervisor uses it (host/supervisor/platform_darwin.go).
 # - The VM has no GPU device. libkrun has no GPU device and no libraries of the GPU, and
 #   krunkit does not give a GPU device to each VM.
 #
@@ -10,19 +11,19 @@
 # changes. Then change the text in postPatch.
 #
 # To update libkrun to a new version: change `version` and the two hashes, and make sure that
-# the patch applies and that a VM gives its free memory back (docs/src/memory.md). Remove the patch
-# when a 1.x release of libkrun has PR #931 and enables it for krunkit.
+# a VM gives its free memory back (docs/src/memory.md). Remove the patch of krunkit when the
+# krunkit of nixpkgs has PR #122.
 { pkgs }:
 let
   inherit (pkgs) fetchFromGitHub rustPlatform;
 
-  version = "1.19.7";
+  version = "1.19.8";
 
   src = fetchFromGitHub {
     owner = "libkrun";
     repo = "libkrun";
     tag = "v${version}";
-    hash = "sha256-VtepY0sAqP18OIhIPwESoGi7E2Ahs4ihJjLyLH78JAM=";
+    hash = "sha256-JcMkgtoNlY2cK32ZjlyGCne2gIWXTSqQSEiOadUSd4E=";
   };
 
   # The init program that libkrun contains. nixpkgs builds it from its own version of the
@@ -53,11 +54,8 @@ let
 
     cargoDeps = rustPlatform.fetchCargoVendor {
       inherit src;
-      hash = "sha256-Ab7b37Npf0vNg7rF8KfPdLYCBuBCyRAYhR13RLecV04=";
+      hash = "sha256-FrHkBeTO1RL/hRT0H6okuGdbGiGNljwUOepBsQvrEug=";
     };
-
-    # Gives the free memory of the VM back to macOS.
-    patches = (old.patches or [ ]) ++ [ ./libkrun-balloon-macos.patch ];
 
     # No libraries of the GPU.
     buildInputs = [ ];
@@ -76,6 +74,9 @@ let
 in
 (pkgs.krunkit.override { inherit libkrun-efi; }).overrideAttrs (old: {
   buildInputs = [ libkrun-efi ];
+
+  # The option --free-page-reporting, which gives the free memory of the VM back to macOS.
+  patches = (old.patches or [ ]) ++ [ ./krunkit-free-page-reporting.patch ];
 
   # Removes the GPU device that krunkit gives to each VM.
   postPatch = (old.postPatch or "") + ''

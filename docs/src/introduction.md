@@ -45,8 +45,8 @@ The author used coding agents carefully for the design and development of this p
 devenv-sandbox-vm is a small layer on top of these projects:
 
 - [libkrun](https://github.com/libkrun/libkrun) and [krunkit](https://github.com/libkrun/krunkit):
-  the hypervisor. The memory patch is a backport of
-  [libkrun PR #931](https://github.com/libkrun/libkrun/pull/931).
+  the hypervisor. The memory patch for krunkit is a backport of
+  [krunkit PR #122](https://github.com/libkrun/krunkit/pull/122).
 - [gvproxy](https://github.com/containers/gvisor-tap-vsock): the network of the VM.
 - [smokescreen](https://github.com/stripe/smokescreen): the HTTP proxy.
 - [s6](https://skarnet.org/software/s6/) (s6-log): the log rotation.
