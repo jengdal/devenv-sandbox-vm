@@ -23,6 +23,7 @@ tests. If something breaks the VM, delete it and create a new one from the commi
 ```mermaid
 ---
 config:
+  theme: neutral
   flowchart:
     curve: basis
 ---
@@ -50,21 +51,12 @@ flowchart TB
   proxy -.-x lan
   agent -.-x files
   proxy --> internet
-  linkStyle 3,4,5 stroke:#cf222e,stroke-width:1.5px
-  linkStyle 6 stroke:#bf8700,stroke-width:1.5px
+  linkStyle 3,4,5 stroke:#cf222e
+  linkStyle 6 stroke:#d97706
   hostsvc ~~~ internet
   hostsvc ~~~ lan
 
-  classDef caution fill:#d299221f,stroke:#bf8700,stroke-width:1.5px
-  classDef blocked fill:#cf222e1f,stroke:#cf222e,stroke-width:1.5px
-  classDef part fill:#0969da14,stroke:#0969da
-  class internet caution
-  class hostsvc,lan,files blocked
-  class agent,gvproxy,proxy part
-  style mac fill:#8881
   style sandboxes stroke-dasharray:6 4
-  style krunkit fill:#8881
-  style vm fill:#0969da0d
 ```
 
 The VM has no shared directories and no route out other than the proxy and the ports that you open
