@@ -23,6 +23,7 @@ tests. If something breaks the VM, delete it and create a new one from the commi
 ```mermaid
 ---
 config:
+  theme: neutral
   flowchart:
     curve: basis
 ---
