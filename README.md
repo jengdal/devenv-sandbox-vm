@@ -71,7 +71,9 @@ You declare the VM in `devenv.nix`:
 ```nix
 services.sandbox-vm = {
   enable = true;
+  cpus = 6;
   memory = 16; # GiB
+
   # Optional: the VM can connect only to these hosts.
   proxy.allowedDomains = [
     "cache.nixos.org"
@@ -80,17 +82,33 @@ services.sandbox-vm = {
     "*.github.com"
     "*.githubusercontent.com"
   ];
+
+  # Ports in the VM, on 127.0.0.1 of your Mac.
+  expose = {
+    web = { guest = 3000; host = 3333; };
+  };
+
+  # A service that the VM can connect to on its 127.0.0.1:8080, through your Mac.
+  reach.internal = { host = "my-internal-service"; port = 8080; };
+
+  # Automatic backups of /home in the VM.
+  backup.enable = true;
 };
 ```
 
-Then you start the VM and connect to it:
+Then you start the VM and the backup process, and connect to the VM:
 
 ```bash
-devenv up sandbox-vm
+devenv up sandbox-vm sandbox-vm-backup
 ssh devenv-<project>
 ```
 
 To set it up, follow [Quick start](https://jengdal.github.io/devenv-sandbox-vm/quick-start.html).
+For more about these settings, refer to
+[Network](https://jengdal.github.io/devenv-sandbox-vm/network.html),
+[Ports](https://jengdal.github.io/devenv-sandbox-vm/ports.html),
+[Logs and backups](https://jengdal.github.io/devenv-sandbox-vm/logs-and-backups.html) and
+[Options](https://jengdal.github.io/devenv-sandbox-vm/reference/options.html).
 
 ## Features
 
