@@ -3,7 +3,7 @@
 **WARNING: This is an experiment. Use it if you want to help test and develop it.**
 
 devenv-sandbox-vm runs a sandboxed NixOS VM on a Mac. Use it to decrease the risk from coding agents
-and supply chain attacks from package managers such as NPM.
+and supply chain attacks on dependencies.
 
 In this documentation:
 
