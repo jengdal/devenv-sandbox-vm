@@ -40,6 +40,44 @@ in
       python3 "$DEVENV_ROOT/docs/reference.py" "''${1:-$DEVENV_ROOT/docs/src/reference}"
   '';
 
+  # Makes the SVG files of the diagrams from their mermaid source: for each
+  # docs/src/images/*.mmd, a <name>.svg for a light page and a <name>-dark.svg for a dark page.
+  # The README shows the SVG files, because not all GitHub clients show mermaid. mermaid-cli
+  # needs a browser, and nixpkgs has no Chromium for macOS. Thus the script uses Google Chrome,
+  # and builds it only when the script runs, not when the shell starts. mmdc gets the
+  # arguments, for example `diagrams -p puppeteer.json` with {"args": ["--no-sandbox"]} if
+  # Chrome cannot start its sandbox because the shell already runs in a sandbox.
+  scripts.diagrams.exec = ''
+    set -euo pipefail
+    tools=$(nix-build --no-out-link -E '
+      let
+        pkgs = import ${pkgs.path} {
+          config.allowUnfreePredicate = p: (p.pname or "") == "google-chrome";
+          overlays = [ ];
+        };
+      in
+      pkgs.symlinkJoin {
+        name = "diagram-tools";
+        paths = [ pkgs.mermaid-cli pkgs.google-chrome ];
+      }
+    ')
+    if [ -d "$tools/Applications/Google Chrome.app" ]; then
+      PUPPETEER_EXECUTABLE_PATH="$tools/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
+    else
+      PUPPETEER_EXECUTABLE_PATH="$tools/bin/google-chrome-stable"
+    fi
+    export PUPPETEER_EXECUTABLE_PATH
+    # Text as SVG text, not HTML: image viewers that are not browsers do not show HTML in an SVG.
+    config=$(mktemp)
+    trap 'rm -f "$config"' EXIT
+    echo '{"htmlLabels": false, "flowchart": {"htmlLabels": false}}' >"$config"
+    for src in "$DEVENV_ROOT"/docs/src/images/*.mmd; do
+      out=''${src%.mmd}
+      "$tools/bin/mmdc" -q -c "$config" -t neutral -b white -i "$src" -o "$out.svg" "$@"
+      "$tools/bin/mmdc" -q -c "$config" -t dark -b transparent -i "$src" -o "$out-dark.svg" "$@"
+    done
+  '';
+
   languages.go = {
     enable = true;
     lsp.enable = true;

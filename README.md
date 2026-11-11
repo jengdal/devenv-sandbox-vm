@@ -20,44 +20,11 @@ tests. If something breaks the VM, delete it and create a new one from the commi
 
 ## How it works
 
-```mermaid
----
-config:
-  theme: neutral
-  flowchart:
-    curve: basis
----
-flowchart TB
-  you("You")
-  subgraph mac["Your Mac"]
-    subgraph sandboxes["macOS sandboxes (sandbox-exec)"]
-      subgraph krunkit["krunkit hypervisor"]
-        subgraph vm["NixOS VM"]
-          agent("Your project,<br/>dependencies, agents")
-        end
-      end
-      gvproxy("gvproxy<br/>user-mode network")
-      proxy("smokescreen<br/>HTTP proxy, your rules")
-    end
-    files[("Your files,<br/>SSH keys, credentials<br/><i>not shared</i>")]
-    hostsvc("Services on your Mac<br/><i>blocked by default</i>")
-  end
-  internet(("Internet<br/><i>allowed by default</i>"))
-  lan("Your local network<br/><i>blocked by default</i>")
-
-  you -- "SSH" --> agent
-  agent --> gvproxy --> proxy
-  proxy -.-x hostsvc
-  proxy -.-x lan
-  agent -.-x files
-  proxy --> internet
-  linkStyle 3,4,5 stroke:#cf222e
-  linkStyle 6 stroke:#d97706
-  hostsvc ~~~ internet
-  hostsvc ~~~ lan
-
-  style sandboxes stroke-dasharray:6 4
-```
+<!-- The source is docs/src/images/how-it-works.mmd. To update the SVG files, run `diagrams`. -->
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/src/images/how-it-works-dark.svg">
+  <img alt="Diagram: the VM runs in the krunkit hypervisor, in macOS sandboxes on your Mac. Its only route out goes through gvproxy and the smokescreen proxy. The internet is allowed by default. Your local network and the services on your Mac are blocked by default. Your files are not shared." src="docs/src/images/how-it-works.svg">
+</picture>
 
 The VM has no shared directories and no route out other than the proxy and the ports that you open
 in `devenv.nix`. The hypervisor, the network and the proxy run in macOS sandboxes. If an attacker

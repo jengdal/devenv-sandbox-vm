@@ -1,0 +1,40 @@
+---
+config:
+  flowchart:
+    curve: basis
+---
+flowchart TB
+  you("You")
+  subgraph mac["Your Mac"]
+    subgraph sandboxes["macOS sandboxes (sandbox-exec)"]
+      subgraph krunkit["krunkit hypervisor"]
+        subgraph vm["NixOS VM"]
+          agent("Your project,<br/>dependencies, agents")
+        end
+      end
+      gvproxy("gvproxy<br/>user-mode network")
+      proxy("smokescreen<br/>HTTP proxy, your rules")
+    end
+    files[("`Your files,
+    SSH keys, credentials
+    *not shared*`")]
+    hostsvc("`Services on your Mac
+    *blocked by default*`")
+  end
+  internet(("`Internet
+  *allowed by default*`"))
+  lan("`Your local network
+  *blocked by default*`")
+
+  you -- "SSH" --> agent
+  agent --> gvproxy --> proxy
+  proxy -.-x hostsvc
+  proxy -.-x lan
+  agent -.-x files
+  proxy --> internet
+  linkStyle 3,4,5 stroke:#cf222e
+  linkStyle 6 stroke:#d97706
+  hostsvc ~~~ internet
+  hostsvc ~~~ lan
+
+  style sandboxes stroke-dasharray:6 4

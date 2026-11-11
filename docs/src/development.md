@@ -102,6 +102,11 @@ example `` [`proxy.allowRanges`](reference/options.md#proxy-allowranges) `` or
 only the backticks are necessary: `docs-reference` adds the links. `devenv test` fails if a name
 has no link. `docs/links.py` has the rules for the names.
 
+The diagram in the README is made from the mermaid file `docs/src/images/how-it-works.mmd`. Not all
+GitHub clients show mermaid, so the README shows SVG files: one for a light page and one for a dark
+page. Change the `.mmd` file, then run `devenv shell -- diagrams` and commit the new SVG files. The
+first run downloads Google Chrome, because mermaid-cli needs a browser.
+
 `devenv test` fails if the reference pages do not match the Nix files. It also builds the site
 and fails if a link to a page or a heading does not exist. When you rename a heading, change the
 links to it. ruff checks the Python scripts in `docs/` and `tests/docs/`. A push to `main` on GitHub publishes the site
