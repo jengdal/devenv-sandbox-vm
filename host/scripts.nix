@@ -183,7 +183,7 @@ in
     env = vmEnv;
     # ssh, ssh-keygen, nix and pkill are the programs of the host: they are not in
     # this list.
-    runtimeInputs = lib.optionals platform.supported (platform.runtimeInputs ++ [ pkgs.git ]);
+    runtimeInputs = lib.optionals platform.supported (platform.runtimeInputs ++ [ pkgs.gitMinimal ]);
   };
   # The probe of the sandbox-vm process.
   ready = program {
@@ -195,7 +195,7 @@ in
     name = "update";
     script = "update.sh";
     env = homeEnv;
-    runtimeInputs = [ pkgs.git ];
+    runtimeInputs = [ pkgs.gitMinimal ];
   };
   # The sandbox-vm:backup task.
   backup = program {
